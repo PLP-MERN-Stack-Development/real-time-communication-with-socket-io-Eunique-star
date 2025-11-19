@@ -35,16 +35,16 @@ export const useSocket = () => {
     socket.disconnect();
   };
 
-  // Send a message
-  const sendMessage = (message) => {
-    socket.emit('send_message', { message });
+  // Send a message (Global) - Now supports text AND image
+  const sendMessage = ({ message, image }) => {
+    socket.emit('send_message', { message, image });
   };
 
-  // Send a private message
-  const sendPrivateMessage = (to, message) => {
-    socket.emit('private_message', { to, message });
+  // Send a private message - Now supports text AND image
+  const sendPrivateMessage = (to, { message, image }) => {
+    socket.emit('private_message', { to, message, image });
   };
-
+  
   // Set typing status
   const setTyping = (isTyping) => {
     socket.emit('typing', isTyping);
@@ -61,15 +61,50 @@ export const useSocket = () => {
       setIsConnected(false);
     };
 
+    // --- UPDATED SOUND LOGIC STARTS HERE ---
+    
+    // A short "beep" sound encoded as text (No file needed!)
+    const notificationSound = "data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAAtAAABAAAAAAAAAAAAAA//NExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//NExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//NExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//NExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//NExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//NExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq";
+
+    // Helper: Play Sound & Show Notification
+    const notifyUser = (sender, messageContent) => {
+      // 1. Play Sound
+      try {
+        const audio = new Audio(notificationSound);
+        audio.play().catch(e => console.log("Browser blocked sound. Click page to enable."));
+      } catch (error) {
+        console.error("Audio error:", error);
+      }
+
+      // 2. Browser Notification (if tab is hidden)
+      if (document.hidden && Notification.permission === "granted") {
+        new Notification(`New message from ${sender}`, {
+          body: messageContent,
+          icon: '/vite.svg' // or any icon path
+        });
+      }
+    };
+    // --- UPDATED SOUND LOGIC ENDS HERE ---
+
     // Message events
     const onReceiveMessage = (message) => {
       setLastMessage(message);
       setMessages((prev) => [...prev, message]);
+      
+      // Notify only if it's NOT my own message
+      if (message.senderId !== socket.id) {
+        notifyUser(message.sender, message.message);
+      }
     };
 
     const onPrivateMessage = (message) => {
       setLastMessage(message);
       setMessages((prev) => [...prev, message]);
+      
+      // Notify if it's not me sending it
+      if (message.senderId !== socket.id) {
+        notifyUser(message.sender, "Sent you a private message");
+      }
     };
 
     // User events
@@ -146,4 +181,4 @@ export const useSocket = () => {
   };
 };
 
-export default socket; 
+export default socket;
